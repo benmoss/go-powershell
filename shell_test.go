@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bhendo/go-powershell/backend"
+	"github.com/benmoss/go-powershell/backend"
 )
 
 type context struct {

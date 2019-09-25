@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/bhendo/go-powershell/backend"
-	"github.com/bhendo/go-powershell/utils"
+	"github.com/benmoss/go-powershell/backend"
+	"github.com/benmoss/go-powershell/utils"
 	"github.com/juju/errors"
 )
 
