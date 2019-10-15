@@ -3,9 +3,11 @@
 package powershell
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
-	"strings"
+	"os"
 	"sync"
 
 	"github.com/bhendo/go-powershell/backend"
@@ -21,10 +23,12 @@ type Shell interface {
 }
 
 type shell struct {
-	handle backend.Waiter
-	stdin  io.Writer
-	stdout io.Reader
-	stderr io.Reader
+	handle   backend.Waiter
+	stdin    io.Writer
+	stdout   io.Reader
+	stderr   io.Reader
+	debugerr []byte
+	debugout []byte
 }
 
 func New(backend backend.Starter) (Shell, error) {
@@ -33,7 +37,7 @@ func New(backend backend.Starter) (Shell, error) {
 		return nil, err
 	}
 
-	return &shell{handle, stdin, stdout, stderr}, nil
+	return &shell{handle, stdin, stdout, stderr, []byte{}, []byte{}}, nil
 }
 
 func (s *shell) Execute(cmd string) (string, string, error) {
@@ -59,14 +63,10 @@ func (s *shell) Execute(cmd string) (string, string, error) {
 	waiter := &sync.WaitGroup{}
 	waiter.Add(2)
 
-	go streamReader(s.stdout, outBoundary, &sout, waiter)
-	go streamReader(s.stderr, errBoundary, &serr, waiter)
+	go s.streamReader(s.stdout, outBoundary, &sout, waiter, &s.debugout)
+	go s.streamReader(s.stderr, errBoundary, &serr, waiter, &s.debugerr)
 
 	waiter.Wait()
-
-	if len(serr) > 0 {
-		return sout, serr, errors.Annotate(errors.New(cmd), serr)
-	}
 
 	return sout, serr, nil
 }
@@ -89,27 +89,22 @@ func (s *shell) Exit() {
 	s.stderr = nil
 }
 
-func streamReader(stream io.Reader, boundary string, buffer *string, signal *sync.WaitGroup) error {
+func (s *shell) streamReader(stream io.Reader, boundary string, buffer *string, signal *sync.WaitGroup, debug *[]byte) error {
 	// read all output until we have found our boundary token
-	output := ""
-	bufsize := 64
-	marker := boundary + newline
+	var lines [][]byte
 
-	for {
-		buf := make([]byte, bufsize)
-		read, err := stream.Read(buf)
-		if err != nil {
-			return err
-		}
+	scanner := bufio.NewScanner(stream)
+	scanner.Split(onBoundary([]byte(boundary)))
 
-		output = output + string(buf[:read])
-
-		if strings.HasSuffix(output, marker) {
-			break
-		}
+	for scanner.Scan() {
+		lines = append(lines, scanner.Bytes())
+	}
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "reading standard input:", err)
+		return err
 	}
 
-	*buffer = strings.TrimSuffix(output, marker)
+	*buffer = string(bytes.Join(lines, []byte("\n")))
 	signal.Done()
 
 	return nil
@@ -117,4 +112,24 @@ func streamReader(stream io.Reader, boundary string, buffer *string, signal *syn
 
 func createBoundary() string {
 	return "$gorilla" + utils.CreateRandomString(12) + "$"
+}
+
+func onBoundary(boundary []byte) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
+		}
+		if i := bytes.IndexByte(data, '\n'); i >= 0 {
+			if bytes.HasPrefix(data, boundary) {
+				return 0, nil, bufio.ErrFinalToken
+			}
+			return i + 1, data[0:i], nil
+		}
+		// If we're at EOF, we have a final, non-terminated line. Return it.
+		if atEOF {
+			return len(data), data, nil
+		}
+		// Request more data.
+		return 0, nil, nil
+	}
 }
