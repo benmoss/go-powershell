@@ -7,8 +7,6 @@ import (
 	"io"
 	"regexp"
 	"strings"
-
-	"github.com/juju/errors"
 )
 
 // sshSession exists so we don't create a hard dependency on crypto/ssh.
@@ -28,22 +26,22 @@ type SSH struct {
 func (b *SSH) StartProcess(cmd string, args ...string) (Waiter, io.Writer, io.Reader, io.Reader, error) {
 	stdin, err := b.Session.StdinPipe()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "Could not get hold of the SSH session's stdin stream")
+		return nil, nil, nil, nil, fmt.Errorf("could not get hold of the SSH session's stdin stream: %v", err)
 	}
 
 	stdout, err := b.Session.StdoutPipe()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "Could not get hold of the SSH session's stdout stream")
+		return nil, nil, nil, nil, fmt.Errorf("could not get hold of the SSH session's stdout stream: %v", err)
 	}
 
 	stderr, err := b.Session.StderrPipe()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "Could not get hold of the SSH session's stderr stream")
+		return nil, nil, nil, nil, fmt.Errorf("could not get hold of the SSH session's stderr stream: %v", err)
 	}
 
 	err = b.Session.Start(b.createCmd(cmd, args))
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "Could not spawn process via SSH")
+		return nil, nil, nil, nil, fmt.Errorf("could not spawn process via SSH: %v", err)
 	}
 
 	return b.Session, stdin, stdout, stderr, nil

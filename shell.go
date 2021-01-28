@@ -10,7 +10,6 @@ import (
 
 	"github.com/benmoss/go-powershell/backend"
 	"github.com/benmoss/go-powershell/utils"
-	"github.com/juju/errors"
 )
 
 const newline = "\r\n"
@@ -38,7 +37,7 @@ func New(backend backend.Starter) (Shell, error) {
 
 func (s *shell) Execute(cmd string) (string, string, error) {
 	if s.handle == nil {
-		return "", "", errors.Annotate(errors.New(cmd), "Cannot execute commands on closed shells.")
+		return "", "", fmt.Errorf("cannot execute commands on closed shells")
 	}
 
 	outBoundary := createBoundary()
@@ -49,7 +48,7 @@ func (s *shell) Execute(cmd string) (string, string, error) {
 
 	_, err := s.stdin.Write([]byte(full))
 	if err != nil {
-		return "", "", errors.Annotate(errors.Annotate(err, cmd), "Could not send PowerShell command")
+		return "", "", fmt.Errorf("error when sending PowerShell command '%s': %v", cmd, err)
 	}
 
 	// read stdout and stderr
@@ -65,7 +64,7 @@ func (s *shell) Execute(cmd string) (string, string, error) {
 	waiter.Wait()
 
 	if len(serr) > 0 {
-		return sout, serr, errors.Annotate(errors.New(cmd), serr)
+		return sout, serr, fmt.Errorf("stderr non empty for command '%s': %s", cmd, serr)
 	}
 
 	return sout, serr, nil
