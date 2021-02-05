@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/benmoss/go-powershell/utils"
-	"github.com/juju/errors"
 )
 
 type session struct {
@@ -20,7 +19,7 @@ func NewSession(upstream Middleware, config *SessionConfig) (Middleware, error) 
 	if ok {
 		credentialParamValue, err := asserted.prepare(upstream)
 		if err != nil {
-			return nil, errors.Annotate(err, "Could not setup credentials")
+			return nil, fmt.Errorf("could not setup credentials: %v", err)
 		}
 
 		config.Credential = credentialParamValue
@@ -31,7 +30,7 @@ func NewSession(upstream Middleware, config *SessionConfig) (Middleware, error) 
 
 	_, _, err := upstream.Execute(fmt.Sprintf("$%s = New-PSSession %s", name, args))
 	if err != nil {
-		return nil, errors.Annotate(err, "Could not create new PSSession")
+		return nil, fmt.Errorf("could not create new PSSession: %v", err)
 	}
 
 	return &session{upstream, name}, nil

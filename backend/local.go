@@ -3,10 +3,9 @@
 package backend
 
 import (
+	"fmt"
 	"io"
 	"os/exec"
-
-	"github.com/juju/errors"
 )
 
 type Local struct{}
@@ -16,22 +15,22 @@ func (b *Local) StartProcess(cmd string, args ...string) (Waiter, io.Writer, io.
 
 	stdin, err := command.StdinPipe()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "Could not get hold of the PowerShell's stdin stream")
+		return nil, nil, nil, nil, fmt.Errorf("could not get hold of the PowerShell's stdin stream: %v", err)
 	}
 
 	stdout, err := command.StdoutPipe()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "Could not get hold of the PowerShell's stdout stream")
+		return nil, nil, nil, nil, fmt.Errorf("could not get hold of the PowerShell's stdout stream: %v", err)
 	}
 
 	stderr, err := command.StderrPipe()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "Could not get hold of the PowerShell's stderr stream")
+		return nil, nil, nil, nil, fmt.Errorf("could not get hold of the PowerShell's stderr stream: %v", err)
 	}
 
 	err = command.Start()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "Could not spawn PowerShell process")
+		return nil, nil, nil, nil, fmt.Errorf("could not spawn PowerShell process: %v", err)
 	}
 
 	return command, stdin, stdout, stderr, nil
